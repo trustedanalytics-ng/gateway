@@ -1,10 +1,9 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-<modelVersion>4.0.0</modelVersion>
-<artifactId>gateway</artifactId>
-<version>0.0.2-SNAPSHOT</version>
-<groupId>org.trustedanalytics</groupId>
-
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>gateway</artifactId>
+    <version>0.5.0</version>
+    <groupId>org.trustedanalytics</groupId>
 
     <build>
        <plugins>
@@ -13,7 +12,11 @@
                 <artifactId>license-maven-plugin</artifactId>
                 <version>2.6</version>
                 <configuration>
-                    <header>${project.basedir}/license_header.txt</header>
+                    <header>${project.basedir}/license_header_2016.txt</header>
+                    <validHeaders>
+                         <validHeader>${project.basedir}/license_header_2015.txt</validHeader>
+                         <validHeader>${project.basedir}/license_header_2016.txt</validHeader>
+                     </validHeaders>
                     <basedir>..</basedir>
                     <includes>
                         <include>*.go</include>
@@ -21,7 +24,7 @@
                         <include>etc/*.sh</include>
                         <include>license_checker/*.sh</include>
                         <include>bin/*.sh</include>
-              
+                        <include>pack.sh</include>
                     </includes>                  
                     <mapping>
                         <go>JAVADOC_STYLE</go>
