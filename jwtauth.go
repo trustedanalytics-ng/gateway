@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/dgrijalva/jwt-go/request"
 )
 
 // JwtAuth is the type representing JWT auth imp
@@ -45,7 +46,9 @@ func NewJwtAuth() Authenticator {
 
 // Validate validates the authentication from HTTP request
 func (a *JwtAuth) Validate(req *http.Request) bool {
-	token, err := jwt.ParseFromRequest(req, func(token *jwt.Token) (interface{}, error) {
+	token, err := request.ParseFromRequest(req, request.OAuth2Extractor, func(token *jwt.Token) (interface{}, error) {
+		claims := token.Claims.(jwt.MapClaims)
+
 		var alg string = token.Header[jwtAlgFieldName].(string)
 
 		_, methodIsEcdsa := token.Method.(*jwt.SigningMethodECDSA)
@@ -55,7 +58,7 @@ func (a *JwtAuth) Validate(req *http.Request) bool {
 			return nil, fmt.Errorf("unexpected signing method: %v", alg)
 		}
 
-		iat := token.Claims[iatJWTPayloadFieldName]
+		iat := claims[iatJWTPayloadFieldName]
 		if iat == nil {
 			return nil, fmt.Errorf("auth JWT payload must contain an `iat` field")
 		}
@@ -65,7 +68,7 @@ func (a *JwtAuth) Validate(req *http.Request) bool {
 			return nil, fmt.Errorf("JWT iat not acceptable")
 		}
 
-		deviceID := token.Claims[deviceIDJWTPayloadFieldName]
+		deviceID := claims[deviceIDJWTPayloadFieldName]
 		if deviceID == nil {
 			return nil, fmt.Errorf("auth JWT payload must contain a `device_id` field")
 		}

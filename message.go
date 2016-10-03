@@ -20,7 +20,7 @@ import (
 	"log"
 	"time"
 
-	"code.google.com/p/go-uuid/uuid"
+	"github.com/pborman/uuid"
 )
 
 // NewMessage factors new message

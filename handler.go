@@ -21,7 +21,7 @@ import (
 	"log"
 	"sync/atomic"
 
-	"code.google.com/p/go.net/websocket"
+	"golang.org/x/net/websocket"
 )
 
 const (

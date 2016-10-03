@@ -16,13 +16,9 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"strings"
-
-	"github.com/cloudfoundry-community/go-cfenv"
 )
 
 var args = Config{}
@@ -31,58 +27,45 @@ func init() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.Lshortfile)
 
-	// load from local file
-	loadConfig("./defaults.json", &args)
+	// load from env variables
 
-	args.Trace = GetEnvVarAsBool("GATEWAY_TRACE", args.Trace)
-	args.Pub.Ack = GetEnvVarAsBool("GATEWAY_ACKS", args.Pub.Ack)
-	args.Pub.Compress = GetEnvVarAsBool("GATEWAY_COMPRESS", args.Pub.Compress)
+	args.ID = GetEnvVarAsString("GATEWAY_ID", "g1")
+	args.Index = GetEnvVarAsInt("GATEWAY_INDEX", 0)
+	args.Trace = GetEnvVarAsBool("GATEWAY_TRACE", false)
+	
+	args.Server.Root = GetEnvVarAsString("GATEWAY_SERVER_ROOT", "/ws")
+	args.Server.Host = GetEnvVarAsString("GATEWAY_SERVER_HOST", "0.0.0.0")
+	args.Server.Port = GetEnvVarAsInt("GATEWAY_SERVER_PORT", 8080)
+	args.Server.Token = GetEnvVarAsString("GATEWAY_SERVER_TOKEN", "")
+	args.Server.AuthMethod = GetEnvVarAsString("GATEWAY_SERVER_AUTHMETHOD", "none")
+	args.Server.DeviceKeysURI = GetEnvVarAsString("GATEWAY_SERVER_DEVICEKEYSURI", "")
+	args.Server.TolerableJWTAge = GetEnvVarAsInt("GATEWAY_SERVER_TOLERABLEJWTAGE", 5)
 
-	SetWithStringEnvVar("GATEWAY_AUTH_METHOD", &args.Server.AuthMethod)
+        var kafkaNodes string = GetEnvVarAsString("GATEWAY_PUB_URI", "docker:9091,docker:9092")
+
+        if len(kafkaNodes) > 0 {
+                args.Pub.URI = strings.Split(kafkaNodes, ",")
+        }
+
+	args.Pub.Topic = GetEnvVarAsString("GATEWAY_PUB_TOPIC", "messages")
+	args.Pub.Ack = GetEnvVarAsBool("GATEWAY_PUB_ACK", false)
+	args.Pub.Compress = GetEnvVarAsBool("GATEWAY_PUB_COMPRESS", true)
+	args.Pub.FlushFreq = GetEnvVarAsInt("GATEWAY_PUB_FLUSHFREQ", 1)
+
 	args.Server.AuthMethod = strings.ToLower(args.Server.AuthMethod)
 
 	switch args.Server.AuthMethod {
 	case "none":
 	case "simple":
-		SetWithStringEnvVar("GATEWAY_TOKEN", &args.Server.Token)
 		if len(args.Server.Token) == 0 {
 			log.Panicf("Simple auth requires a token")
 		}
 	case "jwt":
-		SetWithStringEnvVar("GATEWAY_DEVICE_KEYS_URI", &args.Server.DeviceKeysURI)
 		if len(args.Server.DeviceKeysURI) == 0 {
 			log.Panicf("JWT auth requires an API URI for public key retrieval")
 		}
-		args.Server.TolerableJWTAge = GetEnvVarAsInt("GATEWAY_TOLERABLE_JWT_AGE", args.Server.TolerableJWTAge)
 	default:
 		log.Panicf("Invalid gateway authentication method: %v", args.Server.AuthMethod)
-	}
-
-	SetWithStringEnvVar("GATEWAY_TOPIC", &args.Pub.Topic)
-
-	var kafkaNodes string = os.Getenv("GATEWAY_QUEUE")
-
-	cf, _ := cfenv.Current()
-
-	if cf != nil {
-		Trace("CF", cf)
-
-		args.ID = fmt.Sprintf("%s-%d", cf.ID, cf.Index)
-		args.Index = cf.Index
-		args.Server.Port = cf.Port
-		args.Server.Host = cf.Host
-		args.Pub.Topic = cf.Name
-
-		kafka, _ := cf.Services.WithTag("kafka")
-		if len(kafka) > 0 {
-			kafkaNodes = kafka[0].Credentials["uri"].(string)
-		}
-	} else {
-		log.Println("No CF")
-	}
-
-	if len(kafkaNodes) > 0 {
-		args.Pub.URI = strings.Split(kafkaNodes, ",")
 	}
 
 	Trace("config", args)
@@ -115,16 +98,4 @@ type Config struct {
 	Trace  bool         `json:"trace,omitempty"`
 	Server ServerConfig `json:"server,omitempty"`
 	Pub    PubConfig    `json:"publisher,omitempty"`
-}
-
-func loadConfig(path string, c *Config) {
-	log.Printf("loading config from file: %s ...", path)
-	f, err := os.Open(path)
-	if err != nil {
-		log.Panicf("error while reading config file: %s - %v", path, err)
-	}
-	defer f.Close()
-	if err := json.NewDecoder(f).Decode(&c); err != nil {
-		log.Panicf("error while parsing config file: %s - %v", path, err)
-	}
 }

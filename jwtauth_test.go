@@ -89,8 +89,9 @@ func TestJWTAuth_Validate(t *testing.T) {
 
 func getJWT(signingMethod jwt.SigningMethod, deviceID string, key string) (string, error) {
 	token := jwt.New(signingMethod)
-	token.Claims[deviceIDJWTPayloadFieldName] = deviceID
-	token.Claims[iatJWTPayloadFieldName] = time.Now().Unix()
+	claims := token.Claims.(jwt.MapClaims)
+	claims[deviceIDJWTPayloadFieldName] = deviceID
+	claims[iatJWTPayloadFieldName] = time.Now().Unix()
 
 	keyStrBytes, err := hex.DecodeString(key)
 	if err != nil {
