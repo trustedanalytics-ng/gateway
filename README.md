@@ -27,36 +27,34 @@ To start the server invoke the `gateway` executable
 
 ## Configuration
 
-The `gateway` comes pre-configured with a default (`defaults.json`).
+The `gateway` comes pre-configured with a default values.
 
 ```
-{
-  "id": "g1",
-  "trace": true,
-  "server": {
-    "root": "/ws",
-    "host": "127.0.0.1",
-    "port": 8080,
-    "auth_method": "none",
-    "tolerable_jwt_age": 5
-  },
-  "publisher": {
-    "uri": [
-      "127.0.0.1:9092"
-    ],
-    "topic": "messages",
-    "acks": "false"
-  }
-}
+args.ID = GetEnvVarAsString("GATEWAY_ID", "g1")
+args.Index = GetEnvVarAsInt("GATEWAY_INDEX", 0)
+args.Trace = GetEnvVarAsBool("GATEWAY_TRACE", false)
 
+args.Server.Root = GetEnvVarAsString("GATEWAY_SERVER_ROOT", "/ws")
+args.Server.Host = GetEnvVarAsString("GATEWAY_SERVER_HOST", "0.0.0.0")
+args.Server.Port = GetEnvVarAsInt("GATEWAY_SERVER_PORT", 8080)
+args.Server.Token = GetEnvVarAsString("GATEWAY_SERVER_TOKEN", "")
+args.Server.AuthMethod = GetEnvVarAsString("GATEWAY_SERVER_AUTHMETHOD", "none")
+args.Server.DeviceKeysURI = GetEnvVarAsString("GATEWAY_SERVER_DEVICEKEYSURI", "")
+args.Server.TolerableJWTAge = GetEnvVarAsInt("GATEWAY_SERVER_TOLERABLEJWTAGE", 5)
+
+var kafkaNodes string = GetEnvVarAsString("GATEWAY_PUB_URI", "docker:9091,docker:9092")
+
+args.Pub.Topic = GetEnvVarAsString("GATEWAY_PUB_TOPIC", "messages")
+args.Pub.Ack = GetEnvVarAsBool("GATEWAY_PUB_ACK", false)
+args.Pub.Compress = GetEnvVarAsBool("GATEWAY_PUB_COMPRESS", true)
+args.Pub.FlushFreq = GetEnvVarAsInt("GATEWAY_PUB_FLUSHFREQ", 1)
 ```
 
-* `topic` will be automatically created if one does not exists
-* `acks` if set to true will wait for acknowledgment from all brokers (slower)
-* `retries` number of times to retry a metadata request when a partition is in the middle of leader election (10+)
-* `auth_method` can be one of `none`, `simple`, or `jwt` (environment variable GATEWAY_AUTH_METHOD overwrites this default)
+* `GATEWAY_PUB_TOPIC` will be automatically created if one does not exists
+* `GATEWAY_PUB_ACK` if set to true will wait for acknowledgment from all brokers (slower)
+* `GATEWAY_SERVER_AUTHMETHOD` can be one of `none`, `simple`, or `jwt`
 * If you choose `none` as the authentication method, `gateway` will not attempt to authenticate any clients (all clients are authentic)
-* If you wish to enable JWT authentication, set `auth_method` or the environment variable GATEWAY_AUTH_METHOD to `jwt`. When JWT authentication is enabled, the environment variable GATEWAY_DEVICE_KEYS_URI or the `device_keys_uri` config (under `server` in `defaults.json`) must be set to a GET REST API endpoint with the following properties:
+* If you wish to enable JWT authentication, set `GATEWAY_SERVER_AUTHMETHOD` environment variable to `jwt`. When JWT authentication is enabled, the environment variable `GATEWAY_SERVER_DEVICEKEYSURI` must be set to a GET REST API endpoint with the following properties:
   * the endpoint should have the following format:
     * `device_id` must be a path parameter and `alg` must be a URL parameter. An example format is http[s]://\<devices_repo_addr\>/devices/:device_id/key?alg=<alg>.
     * `alg` will hold values of the form 'ESXXX' or 'RSXXX'
@@ -64,66 +62,10 @@ The `gateway` comes pre-configured with a default (`defaults.json`).
 
 When JWT authentication is enabled, clients attempting to connect to `gateway` must include a JWT (in the Authorization header field) with the following properties:
 * The payload must include two fields:
-  * `device_id` with the device id of the client (a public key for that `device_id` must be available from the API endpoint set by GATEWAY_DEVICE_KEYS_URI)
+  * `device_id` with the device id of the client (a public key for that `device_id` must be available from the API endpoint set by `GATEWAY_SERVER_DEVICEKEYSURI`)
   * `iat` which is a Unix epoch time in seconds (visit [this link](https://tools.ietf.org/html/rfc7519#section-4.1.6) for details)
-    * The acceptable age for a JWT can be changed (using unit of minutes) by setting `tolerable_jwt_age` in `defaults.json` or by settings the GATEWAY_TOLERABLE_JWT_AGE environment variable
+    * The acceptable age for a JWT can be changed (using unit of minutes) by setting `GATEWAY_SERVER_TOLERABLEJWTAGE` environment variable
 * The JWT must be signed using an ES\* or RS\* algorithm.
-
-> Note, when runtime is [Cloud Foundry](https://github.com/cloudfoundry) the following configuration attributes are going to be overwritten with [CF environment variables](http://docs.cloudfoundry.org/devguide/deploy-apps/environment-variable.html):
-
-    id = VCAP_APPLICATION.instance_id + VCAP_APPLICATION.instance_index
-    server.port = VCAP_APPLICATION.port
-    server.host = VCAP_APPLICATION.host
-    server.token = $GATEWAY_TOKEN
-    publisher.uri = VCAP_SERVICES[x].credentials.uri
-    publisher.topic = $GATEWAY_TOPIC
-
-## Cloud Foundry Push
-
-Make sure the code builds locally
-
-```
-go build
-go test
-```
-
-Pre-package the dependancies
-
-```
-godep save
-```
-
-> If you don't have godep already installed download it using `go get github.com/tools/godep`
-
-Export Application Variables
-
-```
-export APP_NAME="my-app-name"
-```
-
-Push the code to CF
-
-> These are the minimum variables you need to change. See `manifest.yml` for complete list. Also, make sure you provide the `--no-start` argument to prevent the gateway from publishing to the default topic
-
-```
-cf push $APP_NAME -n $APP_NAME --no-start
-cf set-env $APP_NAME GATEWAY_TOPIC $APP_NAME
-```
-
-* If you plan to use simple authentication, set the GATEWAY_TOKEN environment variable
-```
-export APP_TOKEN=$(echo -n 'your-secret-here' | openssl base64)
-cf set-env $APP_NAME GATEWAY_TOKEN $APP_TOKEN
-```
-* If you plan to use JWT-based authentication, set the GATEWAY_DEVICE_KEYS_URI environment variable
-```
-cf set-env $APP_NAME GATEWAY_DEVICE_KEYS_URI http[s]://<devices_repo_addr>/devices/:device_id/key
-```
-
-Finally, to start `gateway` run
-```
-cf start $APP_NAME
-```
 
 ## Testing
 
@@ -169,33 +111,6 @@ The test client will loop through and send to the gateway individual events at t
 
 If you are not sure of the arguments, execute `node client.js --help` for some help.
 
-### Scaling
-
-If your throughput on the gateway is not sufficient, you can increase the number of application instances. Following command sets the total number of application instances to `3`
-
-```
-cf scale $APP_NAME -i 3
-```
-
-## VERSIONING:
-We use [bumpversion](https://github.com/peritus/bumpversion) tool to manage version written in `manifest.yml`.
-Release versions are in standard `Major.Minor.Patch` format. Snapshot version are in `Major.Minor.Patch.build` format.
-Each realease version component can be easily upgraded with `bumpvresion` command, but you don't have to do it manually - all things happen at TeamCity.
-If you want to change version manually by yourself (without bumpversion tool) REMEMBER to change `version` in two files: .bumpversion.cfg and manifest.yml!
-
-**Notable things:**
-* Configuration is in `.bumpversion.cfg` file.
-* Version info is updated in two files: `.bumpversion.cfg`, `manifest.yml`.
-* Release version format is {major}.{minor}.{patch}.
-* Snapshot version format is {major}.{minor}.{patch}.{build}.
-* Git tags format: v{major}.{minor}.{patch} - only created for release.
-* Commit format: [{day}-{month}-{year}] TeamCity build: {build version} release.
-
-**Possible actions:**
-* Release: `bumpversion dev=1` then `bumpversion patch` and `git push --tags`
-* Snapshot release: it is not possible to make snapshot release by bumpversion. TeamCity do it.
-* Update minor/major version: `bumpversion dev=1` then `bumpversion minor` or `bumpversion major` followed by `git push --tags`
-
 ## Backends
 
 Currently `gateway` supports:
@@ -214,98 +129,6 @@ The `gateway` decorates the inbound messages with following attributes:
 }
 ```
 
-## Preparing package with app-launching-service-broker
-
-First define your broker name:
-```
-export BROKER_NAME=<your broker name>
-```
-
-To deploy gateway to the marketplace you have to use app-launching-service-broker. Clone it and go to the new folder:
-```
-git clone git@github.com:trustedanalytics/app-launching-service-broker.git $BROKER_NAME
-cd $BROKER_NAME
-```
-and clone gateway to apps/gateway with command
-```
-git clone git@github.com:trustedanalytics/gateway apps/gateway
-```
-Download cf client from [link](https://cli.run.pivotal.io/stable?release=linux64-binary&source=github) or alternative version [link](https://github.com/cloudfoundry/cli#downloads) and click on Stable Binaries > Linux 64 bit. Then unpack and place it in broker's bin directory.
-
-Go to manifest.yml in broker directory and add to the env values:
-```
-CF_API: <your_cf_api>
-CF_SRC: ./apps/gateway
-CF_USER: <admin>
-CF_PASS: <admin_password>
-CF_DEP: kafka|shared
-```
-also edit name of broker (same as *$BROKER_NAME*) and delete buildpack value. Example manifest.yml after changes:
-```
----
-applications:
-- name: gateway_broker
-  memory: 256M
-  instances: 1
-  path: .
-  env:
-    CF_API: http://api.platform.com
-    CF_CATALOG_PATH: ./catalog.json
-    CF_SRC: ./apps/gateway
-    CF_USER: admin
-    CF_PASS: password
-    CF_DEP: kafka|shared
-```
-Open catalog.json and edit values:
-* services -> id (must be unique in environment)
-* services -> name (must be unique eg. gateway*)
-* services -> description
-* services -> tags
-* services -> plans -> id (must be unique in environment)
-
-Example catalog.json:
-```
-{
-  "services": [{
-    "id": "548f9a19-a193-4a86-b449-b448350db54d",
-    "name": "gateway_",
-    "description": "Simple websocket bridge with kafka back-end",
-    "bindable": true,
-    "tags": ["gateway"],
-    "plans": [{
-      "id": "3273fc74-8b8d-422b-8217-4a8eb6b6ce5a",
-      "name": "simple",
-      "description": "Simple",
-      "free": true
-    }]
-  }]
-}
-```
-Open manifest.yml in apps/gateway/ directory and change name to the same as in catalog.json also delete buildpack value as in previous manifest.
-Example of apps/gateway/manifest.yml:
-```
----
-applications:
-- name: gateway_
-  memory: 512MB
-  instances: 1
-  env:
-    GATEWAY_TRACE: "false"
-    GATEWAY_ACKS: "false"
-    VERSION: "0.9.5.0"
-```
-
-Next go to apps/gateway and copy Godeps folder to the broker directory (there is already one) - when asked about what to do with duplicates click skip all.
-
-#### Registering package in marketplace
-Go to broker directory, push app ,create service broker and enable service access, can be done with commends:
-```
-cf push
-export SERVICE_URL=$(cf app $BROKER_NAME | grep urls: | awk '{print $2}')
-cf create-service-broker $BROKER_NAME admin admin https://$SERVICE_URL
-cf enable-service-access <app name same as in catalog.json>
-```
-**You have done it, go to the marketplace and enjoy your new Gateway!**
 ## License
 
 This project is under the MIT License. See the [LICENSE](https://github.com/mchmarny/gateway/blob/master/LICENSE) file for the full license text.
