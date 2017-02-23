@@ -18,13 +18,13 @@ kubernetes_update: docker_build
 	kubectl create -f deployment.yaml
 
 prepare_dirs:
-	mkdir -p ./temp/src/github.com/trustedanalytics/gateway
+	mkdir -p ./temp/src/github.com/trustedanalytics-ng/gateway
 	$(eval REPOFILES=$(shell pwd)/*)
-	ln -sf $(REPOFILES) temp/src/github.com/trustedanalytics/gateway
+	ln -sf $(REPOFILES) temp/src/github.com/trustedanalytics-ng/gateway
 
 build_anywhere: prepare_dirs
 	$(eval GOPATH=$(shell cd ./temp; pwd))
-	$(eval APP_DIR_LIST=$(shell GOPATH=$(GOPATH) go list ./temp/src/github.com/trustedanalytics/gateway/... | grep -v /vendor/))
+	$(eval APP_DIR_LIST=$(shell GOPATH=$(GOPATH) go list ./temp/src/github.com/trustedanalytics-ng/gateway/... | grep -v /vendor/))
 	GOPATH=$(GOPATH) CGO_ENABLED=0 go build $(APP_DIR_LIST)
 	rm -Rf application && mkdir application
 	cp ./gateway ./application/gateway
