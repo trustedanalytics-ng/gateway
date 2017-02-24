@@ -75,7 +75,7 @@ func (c *handler) write(msg *interface{}) {
 	case c.ch <- msg:
 	default:
 		c.server.del(c)
-		err := fmt.Errorf("handler %d is disconnected on %s",
+		err := fmt.Errorf("handler %d is disconnected on %d",
 			c.id, args.Index)
 		c.server.err(err)
 	}
